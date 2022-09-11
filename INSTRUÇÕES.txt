@@ -1,0 +1,95 @@
+1 - CRIAR UM GATE PARA IMPEDIR A VISUALIZAÇÃO DO MENU CONFIGURAÇÕES
+
+- Em App\Providers\AuthServiceProvider , no método boot:
+
+    use Illuminate\Support\Facades\Gate;
+    use Illuminate\Support\Facades\Auth;
+
+    Gate::define('admin_only',function(){
+            return auth()->user()->is_admin == 1 ? true : false;
+        });
+
+- Na View que desejar utilizar:
+
+    @can('admin_only)
+        ...
+    @endcan
+
+2 - CRIAR UM MIDDLEWARE PARA TRAVAR TODAS AS ROTAS
+
+    sail artisan make:middleware EnsureIsAdmin
+
+- Em App\Http\Middleware:
+
+    if(Auth::user()->id != 1){
+            abort(403);
+        }
+
+- Salvar um 'alias' no Kernel , no método protected $routeMiddleware
+
+    'admin' => \App\Http\Middleware\EnsureIsAdmin::class,
+
+- Na página de rotas, colocar as rotas de administrador dentor do gupo middleware
+
+    Route::middleware('admin')->group->function(){
+        ...
+    });
+
+3 - PARA TRAVAR AÇÕES ESPECÍFICAS CRIAR A POLICY
+
+    sail artisan make:policy CustomerPolicy --model=Customer
+
+- Em App\Policies\CustomerPolicy:
+
+    public function view()
+    {
+        return Auth::user()->role->hasPermission('cliente-visualizar');
+    }
+
+    public function create()
+    {
+        return Auth::user()->role->hasPermission('cliente-criar');
+    }
+
+    public function update()
+    {
+        return Auth::user()->role->hasPermission('cliente-editar');
+    }
+
+    public function delete()
+    {
+        return Auth::user()->role->hasPermission('cliente-excluir');
+    }
+
+- Na view:
+
+    @can('view', App\Models\Customer::class)
+        ...
+    @endcan
+
+    @can('create', App\Models\Customer::class)
+        ...
+    @endcan
+
+    .
+    .
+    .
+
+- No CustomerController:
+
+     public function index()
+    {
+        $this->authorize('view', App\Models\Customer::class);
+        $customers = Customer::all();
+        return view('admin.customers.index',compact('customers'));
+    }
+
+    public function create()
+    {
+        $this->authorize('create', App\Models\Customer::class);
+        return view('admin.customers.create');
+    }
+
+    .
+    .
+    .
